@@ -208,19 +208,219 @@ class extFCTP( FCTP.fctp ):
         solution and applies local search to it. The first solution is, however,
         obtained by applying local search to the initial solution obtained
         by the construction heuristic determined in the configuration file.
-        """        
+        """
         # Apply local search to the initial solution stored in the library
+
+        err = self.local_search()
+        self.history = [self.get_obj_val()]
+
+        if err > 0: return err
+
+        best_sol = FCTP.sol.solution()
+        max_iter = FCTP.param.get(FCTP.param.max_iter)
+        inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
+        if inform: self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
+        for itr in range(max_iter):
+            if self.greedy(0, 1) != 0: break
+            before_LS = self.get_obj_val()
+            self.local_search()
+            after_LS = self.get_obj_val()
+            if after_LS < best_sol.tot_cost: best_sol.over_write()
+            if inform: self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
+            self.history.append(after_LS)
+        best_sol.make_basic()
+        self.solution.over_write(best_sol)
 
     #------------------------------------------------------------------------------             
 
     def ils( self ):
+        if FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_standard:
+            self.ils_standard()
+        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_random:
+            self.ils_k_step_ascent()
+        else:
+            self.ils_k_step_ascent_reset()
+
+    def kick_solution(self, num_exchanges=0):
+        """
+        Perturb a solution by sequentially introducing up to "num_exchanges"
+        non-basic arcs into the basis.
+
+        `Parameters:`
+            num_exchanges : int  (optional)
+                            number of non-basic arcs that the procedures
+                            tries to put into the basis. If equal to zero,
+                            the default, the procedures selects a random number
+                            between 5 and 20% of the number of basic variables.
+        """
+        # Record indices of non-basic arcs.
+        nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]
+
+        # If number of exchanges unspecified, then randomly decide on it
+        if num_exchanges == 0:
+            num_basic = self.nnodes - 1
+            num_exchanges = 3 if num_basic // 5 <= 5 else 5 + np.random.randint(num_basic // 5 - 4)
+
+        # Apply "numexchanges" random basic exchanges.
+        num_nb = nb_arcs.shape[0]
+        for _ in range(num_exchanges):
+            # Pick a non-basic arc at random and make it a basic arc
+            in_arc = np.random.randint(num_nb)
+            self.get_cost_sav(arc=nb_arcs[in_arc])
+            self.remember_move()
+            self.do_move()
+            num_nb -= 1
+            nb_arcs[in_arc] = nb_arcs[num_nb]
+
+    def ils_standard(self):
         """
         Iterated Local Search applied to the FCTP.
+        """
+        # Check if instead of an ordinary local search a RTR search should
+        # be used for improving perturbed solutions.
+        do_RTR = FCTP.param.get(FCTP.param.improve_method) == FCTP.param.ils_rtr
+
+        # Initialise parameter controlling when to reset the current solution
+        beta = max(5, (self.nnodes - 1) // 10)
+
+        #  Initialise iteration counters
+        num_fail = 0;
+        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+        max_iter = FCTP.param.get(FCTP.param.max_iter)
+        iterat = 0;
+
+        # Display something on the screen, so that we can see that something happens
+        do_info = FCTP.param.get(FCTP.param.screen)
+        inform = do_info == FCTP.param.on
+        if inform: self.give_info("Iter", "OBJ (before LS)", "OBJ (after LS)", \
+                                  "BEST_OBJ", title="Iterated local search")
+
+        # Save the initial solution as both the "current" and incumbent solution
+        best_sol = FCTP.sol.solution()
+        cur_sol = FCTP.sol.solution(best_sol)
+        self.history = [cur_sol.tot_cost]
+
+        # If RTR is applied as local search method switch of the screen and
+        # reduce number of iterations for the RTR procedure
+        if do_RTR:
+            FCTP.param.set(FCTP.param.max_no_imp, 10)
+            FCTP.param.set(FCTP.param.max_iter, 10)
+            FCTP.param.set(FCTP.param.screen, FCTP.param.off)
+
+        # Do the actual ILS:
+        while True:
+            iterat += 1
+            # Improve solution using local search
+            before_LS = self.get_obj_val()
+            if do_RTR:
+                self.rtr()
+            else:
+                self.local_search()
+            after_LS = self.get_obj_val()
+            accept = after_LS < cur_sol.tot_cost
+            self.history.append(after_LS)
+            # Check if new overall best solution has been detected
+            num_fail += 1
+            if after_LS < best_sol.tot_cost:
+                best_sol.over_write()
+                num_fail = 0;
+            # Stop if max. number of failed subsequent iterations is reached
+            if num_fail == max_fail: break
+            # Display objective values after local search
+            if inform: self.give_info(iterat, before_LS, after_LS, best_sol.tot_cost)
+            # Every beta iterations, reset the "current" solution to the best one.
+            if iterat % beta == 0:
+                accept = False
+                cur_sol.over_write(best_sol)
+            # If solution is accepted, overwrite "current solution".
+            # Otherwise, overwrite the actual solution with the "current solution".
+            if accept:
+                cur_sol.over_write()
+            else:
+                cur_sol.make_basic()
+
+            # Apply a random kick to the Library's solution
+            self.kick_solution()
+
+        # ILS is finished. Set library's solution to best one found above
+        best_sol.make_basic()
+        self.solution.over_write(best_sol)
+
+        # Reset iterations and screen parameter if changed
+        if do_RTR:
+            FCTP.param.set(FCTP.param.max_no_imp, max_fail)
+            FCTP.param.set(FCTP.param.max_no_imp, max_iter)
+            FCTP.param.set(FCTP.param.screen, do_info)
+
+
+    def ils_k_step_ascent_reset(self):
+            """
+            Perform our implementation of Iterated Local Search with an xshake procedure in the form of a randomised
+            accent. Resets to best solution after a number of tries
+            """
+
+            self.local_search()
+            self.history = [self.get_obj_val()]
+            k_step = FCTP.param.get(FCTP.param.kstep)
+            max_iter = FCTP.param.get(FCTP.param.max_iter)
+            max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+            num_fail = 0
+
+            max_before_reset = FCTP.param.get(FCTP.param.max_before_reset)
+            num_no_improvement = 0
+            best_sol = FCTP.sol.solution()
+            inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
+            if inform:
+                self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Iterated Local Search with K-step Ascent and reset")
+            for itr in range(max_iter):
+                for k in range(k_step):
+                    nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
+                    costs = np.zeros_like(nb_arcs)
+                    i = 0
+                    for arc in nb_arcs:
+                        saving = self.get_cost_sav(arc=arc)
+                        if saving < 0:
+                            costs[i] = -saving
+                        i += 1
+                    arcs_to_choose_from = nb_arcs[costs != 0]
+                    inv_costs = 1 / (costs[costs != 0])
+                    probs = inv_costs / np.sum(inv_costs)
+                    choice = np.random.choice(arcs_to_choose_from, p=probs)
+                    self.get_cost_sav(arc=choice)
+                    self.remember_move()
+                    self.do_move()
+                before_LS = self.get_obj_val()
+                self.local_search()
+                after_LS = self.get_obj_val()
+                num_fail += 1
+                num_no_improvement += 1
+                if after_LS < best_sol.tot_cost:
+                    num_fail = 0
+                    num_no_improvement = 0
+                    best_sol.over_write()
+                elif num_no_improvement >= max_before_reset:
+                    num_fail = 0
+                    self.solution.over_write(best_sol)
+                if inform:
+                    self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
+                self.history.append(after_LS)
+                if num_fail >= max_fail:
+                    break
+            best_sol.make_basic()
+            self.solution.over_write(best_sol)
+
+    def ils_k_step_ascent( self ):
+        """
+        Perform our implementation of Iterated Local Search with an xshake procedure in the form of a randomised
+        accent.
         """
         self.local_search()
         self.history = [self.get_obj_val()]
         k_step = 5
         max_iter = FCTP.param.get(FCTP.param.max_iter)
+        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+        num_fail = 0
+
         best_sol = FCTP.sol.solution()
         inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
         if inform:
@@ -245,11 +445,15 @@ class extFCTP( FCTP.fctp ):
             before_LS = self.get_obj_val()
             self.local_search()
             after_LS = self.get_obj_val()
+            num_fail += 1
             if after_LS < best_sol.tot_cost:
+                num_fail = 0
                 best_sol.over_write()
             if inform:
                 self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
             self.history.append(after_LS)
+            if num_fail >= max_fail:
+                break
         best_sol.make_basic()
         self.solution.over_write(best_sol)
     
@@ -419,3 +623,101 @@ class extFCTP( FCTP.fctp ):
         # Reset libary's solution to best one found above
         best_sol.make_basic()
         self.solution.over_write( best_sol )
+
+    def rtr_travel(self, record):
+        """
+        Application of a single record to record travel that makes basic exchanges
+        and either applies the first improving one or the best accepted one.
+        Non-basic arcs are scanned by looping over suppliers and customers;
+        best-moves for non-basic arcs adjacent to the current supplier node
+        are thereby searched.
+
+        `Parameters:`
+            record : float
+                best objective value found so far
+
+        `Returns:`
+            moved : boolean
+                True if a move has been applied; otherwise False
+        """
+        supplier = np.random.permutation(self.m)
+        customer = np.random.permutation(self.n)
+        move_made = False
+        deviat = FCTP.param.get(FCTP.param.rtr_percent) * record
+
+        for s in supplier:
+            best_sav = -np.inf
+            for c in customer:
+                if self.get_status(ij=(s, c)) != FCTP.BASIC:
+                    saving = self.get_cost_sav(ij=(s, c))
+                    if saving > best_sav:
+                        best_sav = saving
+                        self.remember_move()
+                        if best_sav > 0.0: break
+            # Apply first improving move of best acceptable non-improving
+            # basic exchange involving non-basic arcs of supplier s
+            if best_sav > 0.0 or self.get_obj_val() - best_sav < record + deviat:
+                self.do_move()
+                move_made = True
+        return move_made
+
+    # ------------------------------------------------------------------------------
+
+    def rtr(self):
+        """
+        Applies a Record-to-Record travel to the FCTP.
+        """
+        do_info = FCTP.param.get(FCTP.param.screen)
+        inform = do_info == FCTP.param.on
+        if inform:
+            self.give_info("Iter", "Before_LS", "After_LS", "Best_Objval", title="RTR procedure")
+
+            # Check if instead of an ordinary local search an iterated search should
+        # be used for improving start solutions provided by RTR_travel
+        do_ILS = FCTP.param.get(FCTP.param.improve_method) == FCTP.param.rtr_ils
+
+        # self.local_search() # Maybe, make first ordinary local search
+        best_sol = FCTP.sol.solution()
+        self.history = []
+
+        # Main loop: Repeatedly do local search on an initial solution constructed by RTR
+        iterat = 0
+        num_fail = 0
+        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+        max_iter = FCTP.param.get(FCTP.param.max_iter)
+
+        # If ILS is applied as local search method switch of the screen and
+        # reduce number of iterations for the iterated local search
+        if do_ILS:
+            FCTP.param.set(FCTP.param.max_no_imp, 10)
+            FCTP.param.set(FCTP.param.screen, FCTP.param.off)
+
+        while num_fail < max_fail:
+            iterat += 1
+            # Apply up to max_iter single record-to-record travels
+            for _ in range(max_iter):
+                if not self.rtr_travel(best_sol.tot_cost):  break
+            # Improve RTR solution using some local search method
+            before_LS = self.get_obj_val()
+            if do_ILS:
+                self.ils()
+            else:
+                self.local_search()
+            #  Check if new record is obtained
+            num_fail += 1
+            after_LS = self.get_obj_val()
+            self.history.append(after_LS)
+            if after_LS < best_sol.tot_cost:
+                num_fail = 0
+                best_sol.over_write()
+            # Send some output to the screen
+            if inform: self.give_info(iterat, before_LS, after_LS, best_sol.tot_cost)
+
+        # Reset libary's solution to best one found above
+        best_sol.make_basic()
+        self.solution.over_write(best_sol)
+
+        # Reset iterations and screen parameter if changed
+        if do_ILS:
+            FCTP.param.set(FCTP.param.max_no_imp, max_fail)
+            FCTP.param.set(FCTP.param.screen, do_info)

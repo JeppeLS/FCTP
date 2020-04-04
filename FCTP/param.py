@@ -39,6 +39,9 @@ cpx_localbranch = 24
 cpx_cut_aggress = 25
 cpx_dis_cut = 26
 cpx_use_SNF_Gomory = 27
+ils_type = 28
+kstep = 29
+max_before_reset = 30
 tolerance = 100
 init_file = 200;
 input_file = 201
@@ -81,11 +84,20 @@ alter_ss = 19
 cpx_opt = 20
 tol_default = 1.0E-4
 
+ils_standard = 0 # Vanilla ILS as implemented by Andreas Klose
+ils_random = 1 # ILS with weighted randomised accent with no reset
+ils_random_reset = 2 # ILS with weighted randomised accent with reset
+
+
+
 # Parameters, initially set to default values
 __param = { improve_method:None,\
             greedy_meas:no_greedy,\
             ls_type:first_accept,\
+            ils_type:ils_standard,\
             max_iter:50,\
+            kstep: 3,
+            max_before_reset: 100,
             max_no_imp:100,\
             gls_alpha_fcost:0.1,\
             gls_alpha_tcost:0.0,\
@@ -115,44 +127,50 @@ __param = { improve_method:None,\
             output_file:None}             
 
 # Parameter default values
-__default = {improve_method:None,\
-             greedy_meas:no_greedy,\
-             ls_type:first_accept,\
-             max_iter:50,\
-             max_no_imp:100,\
-             gls_alpha_fcost:0.1,\
-             gls_alpha_tcost:0.0,\
-             sa_cool_beta:0.95,\
-             min_acc_rate:0.001,\
-             ini_acc_rate:0.3,\
-             sample_growth:0.02,\
-             num_runs:1,\
-             do_restart:yes,
-             what_out:no_detail,\
-             screen:on,\
-             pop_size:100,\
-             num_childs:100,\
-             ils_rep:20,\
-             rtr_percent:0.1,\
-             cpx_time:1.0E30,\
-             cpx_nodelim:2147483647,\
-             benders:0,\
-             cpx_localbranch: no,\
-             cpx_cut_aggress: no,\
-             cpx_dis_cut: no,\
-             cpx_use_SNF_Gomory: no,\
-             callbck:0,\
-             tolerance:tol_default,\
-             init_file:None,\
-             input_file:None,\
-             output_file:None}
+__default = { improve_method:None,\
+            greedy_meas:no_greedy,\
+            ls_type:first_accept,\
+            ils_type:ils_standard,\
+            max_iter:50,\
+            kstep: 3,
+            max_before_reset: 100,
+            max_no_imp:100,\
+            gls_alpha_fcost:0.1,\
+            gls_alpha_tcost:0.0,\
+            sa_cool_beta:0.95,\
+            min_acc_rate:0.001,\
+            ini_acc_rate:0.3,\
+            sample_growth:0.02,\
+            num_runs:1,\
+            do_restart:yes,\
+            what_out:no_detail,\
+            screen:on,\
+            pop_size:100,\
+            num_childs:100,\
+            ils_rep:20,\
+            rtr_percent:0.1,\
+            cpx_time:1.0E30,\
+            cpx_nodelim:2147483647,\
+            benders:no,\
+            callbck:no,\
+            cpx_localbranch: no,\
+            cpx_cut_aggress: no,\
+            cpx_dis_cut: no,\
+            cpx_use_SNF_Gomory: no,\
+            tolerance:tol_default,\
+            init_file:None,\
+            input_file:None,\
+            output_file:None}
 
 # Parameter names used in configuration file
 __para_name = { improve_method:"ImproveMethod",\
                 greedy_meas:"GreedyMeasure",\
                 ls_type:"LocalSearch",\
+                ils_type:"ILSType",\
                 max_iter:"MaxIter",\
-                max_no_imp:"MaxIterWithoutImprove",\
+                max_no_imp:"MaxIterWithoutImprove", \
+                kstep: "kstep",
+                max_before_reset: "MaxIterBeforeReset",
                 gls_alpha_fcost:"GLS_alpha_fixedcost",\
                 gls_alpha_tcost:"GLS_alpha_transpcost",\
                 sa_cool_beta:"SA_beta",\
@@ -223,7 +241,7 @@ def get_proc_name ( i ):
     if i==alter_ss: return "Alternative Scatter Search"
     if i==cpx_opt: 
         if (__param[benders]==0): return "Optimal solution with CPLEX"
-        if (__param[benders]==1): return "Optimal solution with CPLEX (automated Benders)"    
+        if (__param[benders]==1): return "Optimal solution with CPLEX (automated Benders)"
     return "UNKOWN"
 
 def print_params( ):
@@ -242,6 +260,7 @@ def print_params( ):
     else:
         print("Start solutions obtained by: LP heuristic" )
     print("Type of local search to use:",__param[ls_type] )
+    print("Type of ILS to use:",__param[ils_type] )
     print("Number of iterations       :",__param[max_iter] )
     print("Iterations without improve :",__param[max_no_imp] )
     print("GLS - penalty fixed cost   :",__param[gls_alpha_fcost] )
@@ -292,4 +311,4 @@ def read_ini_file( ):
                 v = cfg['PARAMETERS'][pname]
                 p = pkeys[pname]
                 __param[p]= ( float(v) if '.' in v else int(v)) if __is_number(v) else v 
-    print_params()
+    print_params()
