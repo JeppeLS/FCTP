@@ -27,10 +27,10 @@ def kvaluetest():
     ini_files = ['ILS.ini', 'ILSReset.ini']
     for ini_file in ini_files:
         df = pd.DataFrame({'K-values': range(1)})
-        for data_file in files[0:10]:
+        for data_file in files[0:3]:
             fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
             res = []
-            for k in range(1):
+            for k in range(10):
                 extFCTP.FCTP.param.set(29, k) # Set k-step value
                 fctp.solve()
                 res.append(fctp.solution.tot_cost)
