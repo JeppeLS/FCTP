@@ -238,8 +238,10 @@ class extFCTP( FCTP.fctp ):
             self.ils_standard()
         elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_random:
             self.ils_k_step_ascent()
-        else:
+        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_random_reset:
             self.ils_k_step_ascent_reset()
+        else:
+            self.ils_k_step_block_moves()
 
     def kick_solution(self, num_exchanges=0):
         """
@@ -308,7 +310,7 @@ class extFCTP( FCTP.fctp ):
             FCTP.param.set(FCTP.param.screen, FCTP.param.off)
 
         # Do the actual ILS:
-        while True:
+        for _ in range(max_iter):
             iterat += 1
             # Improve solution using local search
             before_LS = self.get_obj_val()
@@ -458,7 +460,52 @@ class extFCTP( FCTP.fctp ):
         self.solution.over_write(best_sol)
     
     #------------------------------------------------------------------------------      
-    
+
+    def ils_k_step_block_moves(self):
+        self.local_search()
+        self.history = [self.get_obj_val()]
+        k_step = 5
+        max_iter = FCTP.param.get(FCTP.param.max_iter)
+        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+        num_fail = 0
+
+        best_sol = FCTP.sol.solution()
+        inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
+        if inform:
+            self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
+        for itr in range(max_iter):
+            chosen = []
+            for k in range(k_step):
+                nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
+                arcs_to_choose_from = [arc for arc in nb_arcs if arc not in chosen]
+                savings = np.zeros_like(arcs_to_choose_from)
+                i = 0
+                for arc in arcs_to_choose_from:
+                    saving = self.get_cost_sav(arc=arc)
+                    savings[i] = saving
+                    i += 1
+                idx = np.argmax(savings)
+                choice = arcs_to_choose_from[idx]
+                chosen.append(choice)
+                self.get_cost_sav(arc=choice)
+                self.remember_move()
+                self.do_move()
+            before_LS = self.get_obj_val()
+            self.local_search()
+            after_LS = self.get_obj_val()
+            num_fail += 1
+            if after_LS < best_sol.tot_cost:
+                num_fail = 0
+                best_sol.over_write()
+            if inform:
+                self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
+            self.history.append(after_LS)
+            if num_fail >= max_fail:
+                break
+        best_sol.make_basic()
+        self.solution.over_write(best_sol)
+
+
     def sa( self ):
         """
         Applies a standard simulated annealing procedure to the FCTP. 

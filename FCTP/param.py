@@ -87,6 +87,7 @@ tol_default = 1.0E-4
 ils_standard = 0 # Vanilla ILS as implemented by Andreas Klose
 ils_random = 1 # ILS with weighted randomised accent with no reset
 ils_random_reset = 2 # ILS with weighted randomised accent with reset
+ils_k_step_block_moves = 3
 
 
 
