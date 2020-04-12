@@ -626,7 +626,7 @@ class fctp(ABC):
             self.solution.over_write()
         else:
             self.all_hist = []
-            for _ in range(nruns):
+            for itr in range(nruns):
                 self.history = None
                 if imp_meth == param.msls:
                     self.msls()

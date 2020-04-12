@@ -9,6 +9,7 @@
        02/03/20 (10th Lecture,  F2020)     
        06/03/20 ( 3rd Tutorial, F2020)  
 """
+import time
 
 import FCTP
 import numpy as np
@@ -237,7 +238,7 @@ class extFCTP( FCTP.fctp ):
         if FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_standard:
             self.ils_standard()
         elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_kstep:
-            self.ils_k_step_ascent()
+            self.ils_k_step()
         else:
             raise NameError('Unknown ILS type, input 0 for Standard ILS and 1 for K-step')
 
@@ -360,7 +361,7 @@ class extFCTP( FCTP.fctp ):
         max_fail = FCTP.param.get(FCTP.param.max_no_imp)
         num_fail = 0
 
-        reset = FCTP.param.get(FCTP.use_reset)
+        reset = FCTP.param.get(FCTP.param.reset)
         max_before_reset = FCTP.param.get(FCTP.param.max_before_reset)
         num_no_improvement = 0
 
@@ -371,7 +372,7 @@ class extFCTP( FCTP.fctp ):
         elif FCTP.param.get(FCTP.param.weight_func)=='power':
             transform = lambda  weights: weights**2
         else:
-            raise NameError('Weight Function not found, define weight function as linear, sqrt or power')
+            raise NameError('Weight Function not found, define weight function as linear, sqrt or power, got ' + FCTP.param.get(FCTP.param.weight_func))
         weight_func = lambda x: transform(x) / np.sum(transform(x))
 
         best_sol = FCTP.sol.solution()
@@ -379,10 +380,10 @@ class extFCTP( FCTP.fctp ):
         if inform:
             self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
         for itr in range(max_iter):
-            chosen = []
+            leaving_arcs = []
             for k in range(k_step):
                 nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
-                arcs_to_choose_from = [arc for arc in nb_arcs if arc not in chosen]
+                arcs_to_choose_from = list(set(nb_arcs) - set(leaving_arcs))
                 savings = np.zeros_like(arcs_to_choose_from)
                 i = 0
                 for arc in arcs_to_choose_from:
@@ -392,8 +393,8 @@ class extFCTP( FCTP.fctp ):
                 weights = savings-np.min(savings) # Make savings non-negative
                 weights = weight_func(weights)
                 choice = np.random.choice(arcs_to_choose_from, p=weights)
-                chosen.append(choice)
                 self.get_cost_sav(arc=choice)
+                leaving_arcs.append(self.get_leaving_arc())
                 self.remember_move()
                 self.do_move()
             before_LS = self.get_obj_val()

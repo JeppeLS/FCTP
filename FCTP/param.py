@@ -177,6 +177,8 @@ __para_name = { improve_method:"ImproveMethod",\
                 max_no_imp:"MaxIterWithoutImprove", \
                 kstep: "kstep",
                 max_before_reset: "MaxIterBeforeReset",
+                weight_func: "WeightFunction",
+                reset: "Reset",
                 gls_alpha_fcost:"GLS_alpha_fixedcost",\
                 gls_alpha_tcost:"GLS_alpha_transpcost",\
                 sa_cool_beta:"SA_beta",\
@@ -269,28 +271,13 @@ def print_params( ):
     print("Type of ILS to use:",__param[ils_type] )
     print("Number of iterations       :",__param[max_iter] )
     print("Iterations without improve :",__param[max_no_imp] )
-    print("GLS - penalty fixed cost   :",__param[gls_alpha_fcost] )
-    print("GLS - penalty transp. cost :",__param[gls_alpha_tcost] )
-    print("SA - parameter beta        :",__param[sa_cool_beta] )
-    print("SA - initial accept. rate  :",__param[ini_acc_rate] )
-    print("SA - final accept. rate    :",__param[min_acc_rate] )
-    print("SA - sample size growth    :",__param[sample_growth] )
-    print("Output detail              :",__param[what_out] )
-    print("Intermediate Output is on  :",__param[screen] )
     print("Number of runs             :",__param[num_runs])
     print("Each run with restart?     :",__param[do_restart])
-    print("Population size in EA      :",__param[pop_size])
-    print("Number of childs in EA     :",__param[num_childs])
-    print("ILS iterations in RTR-ILS  :",__param[ils_rep])
-    print("RTR-threshold precentage   :",__param[rtr_percent])
-    print("CPLEX time limit           :",__param[cpx_time] )
-    print("CPLEX node limit           :",__param[cpx_nodelim] )
-    print("CPLEX - local branching    :",__param[cpx_localbranch])
-    print("CPLEX - aggressive cuts    :",__param[cpx_cut_aggress])
-    print("CPLEX - disjunctive cuts   :",__param[cpx_dis_cut])
-    print("CPLEX - SNF Gomory         :",__param[cpx_use_SNF_Gomory])
-    print("Benders decomposition      :",__param[benders])
-    print("Callback heuristic         :",__param[callbck] )
+    print("K-step: ", __param[kstep])
+    print("Reset: ", __param[reset])
+    if __param[reset]:
+        print("Iterations before reset: ", __param[max_before_reset])
+    print("Weight function: ", __param[weight_func])
     print("----------------------------------------------------------") 
 
 def __is_number(s):
