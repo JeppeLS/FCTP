@@ -236,12 +236,10 @@ class extFCTP( FCTP.fctp ):
     def ils( self ):
         if FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_standard:
             self.ils_standard()
-        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_random:
+        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_kstep:
             self.ils_k_step_ascent()
-        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_random_reset:
-            self.ils_k_step_ascent_reset()
         else:
-            self.ils_k_step_block_moves()
+            raise NameError('Unknown ILS type, input 0 for Standard ILS and 1 for K-step')
 
     def kick_solution(self, num_exchanges=0):
         """
@@ -354,120 +352,27 @@ class extFCTP( FCTP.fctp ):
             FCTP.param.set(FCTP.param.max_no_imp, max_iter)
             FCTP.param.set(FCTP.param.screen, do_info)
 
-
-    def ils_k_step_ascent_reset(self):
-            """
-            Perform our implementation of Iterated Local Search with an xshake procedure in the form of a randomised
-            accent. Resets to best solution after a number of tries
-            """
-
-            self.local_search()
-            self.history = [self.get_obj_val()]
-            k_step = FCTP.param.get(FCTP.param.kstep)
-            max_iter = FCTP.param.get(FCTP.param.max_iter)
-            max_fail = FCTP.param.get(FCTP.param.max_no_imp)
-            num_fail = 0
-
-            max_before_reset = FCTP.param.get(FCTP.param.max_before_reset)
-            num_no_improvement = 0
-            best_sol = FCTP.sol.solution()
-            inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
-            if inform:
-                self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Iterated Local Search with K-step Ascent and reset")
-            for itr in range(max_iter):
-                for k in range(k_step):
-                    nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
-                    costs = np.zeros_like(nb_arcs)
-                    i = 0
-                    for arc in nb_arcs:
-                        saving = self.get_cost_sav(arc=arc)
-                        if saving < 0:
-                            costs[i] = -saving
-                        i += 1
-                    arcs_to_choose_from = nb_arcs[costs != 0]
-                    inv_costs = 1 / (costs[costs != 0])
-                    probs = inv_costs / np.sum(inv_costs)
-                    choice = np.random.choice(arcs_to_choose_from, p=probs)
-                    self.get_cost_sav(arc=choice)
-                    self.remember_move()
-                    self.do_move()
-                before_LS = self.get_obj_val()
-                self.local_search()
-                after_LS = self.get_obj_val()
-                num_fail += 1
-                num_no_improvement += 1
-                if after_LS < best_sol.tot_cost:
-                    num_fail = 0
-                    num_no_improvement = 0
-                    best_sol.over_write()
-                elif num_no_improvement >= max_before_reset:
-                    num_fail = 0
-                    self.solution.over_write(best_sol)
-                if inform:
-                    self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
-                self.history.append(after_LS)
-                if num_fail >= max_fail:
-                    break
-            best_sol.make_basic()
-            self.solution.over_write(best_sol)
-
-    def ils_k_step_ascent( self ):
-        """
-        Perform our implementation of Iterated Local Search with an xshake procedure in the form of a randomised
-        accent.
-        """
+    def ils_k_step(self):
         self.local_search()
         self.history = [self.get_obj_val()]
-        k_step = 5
+        k_step = FCTP.param.get(FCTP.param.kstep)
         max_iter = FCTP.param.get(FCTP.param.max_iter)
         max_fail = FCTP.param.get(FCTP.param.max_no_imp)
         num_fail = 0
 
-        best_sol = FCTP.sol.solution()
-        inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
-        if inform:
-            self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
-        for itr in range(max_iter):
-            for k in range(k_step):
-                nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
-                costs = np.zeros_like(nb_arcs)
-                i = 0
-                for arc in nb_arcs:
-                    saving = self.get_cost_sav(arc=arc)
-                    if saving < 0:
-                        costs[i] = -saving
-                    i += 1
-                arcs_to_choose_from = nb_arcs[costs != 0]
-                inv_costs = 1 / (costs[costs != 0])
-                probs = inv_costs / np.sum(inv_costs)
-                choice = np.random.choice(arcs_to_choose_from, p=probs)
-                self.get_cost_sav(arc=choice)
-                self.remember_move()
-                self.do_move()
-            before_LS = self.get_obj_val()
-            self.local_search()
-            after_LS = self.get_obj_val()
-            num_fail += 1
-            if after_LS < best_sol.tot_cost:
-                num_fail = 0
-                best_sol.over_write()
-            if inform:
-                self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
-            self.history.append(after_LS)
-            if num_fail >= max_fail:
-                break
-        best_sol.make_basic()
-        self.solution.over_write(best_sol)
-    
-    #------------------------------------------------------------------------------      
+        reset = FCTP.param.get(FCTP.use_reset)
+        max_before_reset = FCTP.param.get(FCTP.param.max_before_reset)
+        num_no_improvement = 0
 
-    def ils_k_step_block_moves(self):
-        self.local_search()
-        self.history = [self.get_obj_val()]
-        k_step = 5
-        max_iter = FCTP.param.get(FCTP.param.max_iter)
-        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
-        num_fail = 0
+        if FCTP.param.get(FCTP.param.weight_func)=='linear':
+            transform = lambda weights: weights
+        elif FCTP.param.get(FCTP.param.weight_func)=='sqrt':
+            transform = lambda  weights: np.sqrt(weights)
+        elif FCTP.param.get(FCTP.param.weight_func)=='power':
+            transform = lambda  weights: weights**2
+        else:
+            raise NameError('Weight Function not found, define weight function as linear, sqrt or power')
+        weight_func = lambda x: transform(x) / np.sum(transform(x))
 
         best_sol = FCTP.sol.solution()
         inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
@@ -484,8 +389,9 @@ class extFCTP( FCTP.fctp ):
                     saving = self.get_cost_sav(arc=arc)
                     savings[i] = saving
                     i += 1
-                idx = np.argmax(savings)
-                choice = arcs_to_choose_from[idx]
+                weights = savings-np.min(savings) # Make savings non-negative
+                weights = weight_func(weights)
+                choice = np.random.choice(arcs_to_choose_from, p=weights)
                 chosen.append(choice)
                 self.get_cost_sav(arc=choice)
                 self.remember_move()
@@ -494,9 +400,14 @@ class extFCTP( FCTP.fctp ):
             self.local_search()
             after_LS = self.get_obj_val()
             num_fail += 1
+            num_no_improvement += 1
             if after_LS < best_sol.tot_cost:
+                num_no_improvement = 0
                 num_fail = 0
                 best_sol.over_write()
+            if num_no_improvement >= max_before_reset and reset:
+                num_fail = 0
+                self.solution.over_write(best_sol)
             if inform:
                 self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
             self.history.append(after_LS)

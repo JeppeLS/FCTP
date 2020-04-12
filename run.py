@@ -3,11 +3,9 @@ import numpy as np
 import pandas as pd
 
 dir = './'
-files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP', 'N1007.FCTP', 'N2007.FCTP', 'N3304.FCTP', 'N3507.FCTP', 'N3704.FCTP']
 
 ## Testing iterations needed:
-def itertest():
-    ini_files = ['ILS.ini', 'ILSReset.ini', 'VanillaILS.ini']
+def itertest(ini_files, files):
     df = pd.DataFrame({'File Names': files})
     for ini_file in ini_files:
         res = []
@@ -20,45 +18,55 @@ def itertest():
     df.to_latex(buf=(dir + 'iter_test'))
 
 
-def kvaluetest():
-    ini_files = ['ILS.ini', 'ILSReset.ini']
+def kvaluetest(ini_files, files):
     for ini_file in ini_files:
         df = pd.DataFrame({'K-values': range(10)})
-        for data_file in files[2:5]:
+        for data_file in files:
             fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
             res = []
             for k in range(10):
                 extFCTP.FCTP.param.set(29, k) # Set k-step value
+                extFCTP.FCTP.param.set(4, 500)
+                extFCTP.FCTP.param.set(12, 2)
                 fctp.solve()
                 res.append(fctp.solution.tot_cost)
             df[data_file] = res.copy()
         df.to_latex(buf=(dir + ini_file + '_k_step_test'))
 
-def test_instances():
-    ini_files = ['ILS.ini', 'ILSReset.ini', 'VanillaILS.ini']
+def test_instances(ini_files, files):
     df = pd.DataFrame({'File Names': files})
     for ini_file in ini_files:
         res = []
         for data_file in files:
             fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
+            param = extFCTP.FCTP.param
+            param.set(param.kstep, 4)
+            param.set(param.max_iter, 500)
+            param.set(param.max_before_reset, 20)
+            param.set(param.weight_func, 'something')
+            param.set(param.ils_type, param.ils_standard)
             fctp.solve()
             res.append(fctp.solution.tot_cost)
         df[ini_file] = res
-    df.to_latex(buf=(dir + 'results'))
+    df.to_latex(buf=(dir + 'resultsv2'))
 
-def test_instances_v2():
-    ini_files = ['ILSBlockMove.ini', 'ILS.ini']
-    df = pd.DataFrame({'File Names': files[4:5]})
+def test_instances_v2(ini_files, files):
+    df = pd.DataFrame({'File Names': files})
     for ini_file in ini_files:
         res = []
-        for data_file in files[4:5]:
-            fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
-            fctp.solve()
-            res.append(fctp.solution.tot_cost)
-        df[ini_file] = res
+        for _ in range(20):
+            for data_file in files:
+                fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
+
+                extFCTP.FCTP.param.set(4, 100)
+                extFCTP.FCTP.param.set(12, 1)
+                fctp.solve()
+                res.append(fctp.solution.tot_cost)
+        df[ini_file] = np.mean(res)
     df.to_latex(buf=(dir + 'res_test'))
 
-
-
 if __name__ == "__main__":
-    test_instances_v2()
+    files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP','N1007.FCTP', 'N2007.FCTP', 'N3304.FCTP', 'N3507.FCTP',
+             'N3704.FCTP']
+    ini_files = ['ILSBlockMove.ini', 'ILS.ini', 'ILSReset.ini']
+    kvaluetest(ini_files, files[2:5])

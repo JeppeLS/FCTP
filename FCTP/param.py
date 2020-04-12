@@ -42,6 +42,8 @@ cpx_use_SNF_Gomory = 27
 ils_type = 28
 kstep = 29
 max_before_reset = 30
+weight_func = 31
+reset = 32
 tolerance = 100
 init_file = 200;
 input_file = 201
@@ -85,9 +87,7 @@ cpx_opt = 20
 tol_default = 1.0E-4
 
 ils_standard = 0 # Vanilla ILS as implemented by Andreas Klose
-ils_random = 1 # ILS with weighted randomised accent with no reset
-ils_random_reset = 2 # ILS with weighted randomised accent with reset
-ils_k_step_block_moves = 3
+ils_kstep = 1 # ILS k-step, our alg
 
 
 
@@ -98,6 +98,8 @@ __param = { improve_method:None,\
             ils_type:ils_standard,\
             max_iter:50,\
             kstep: 3,
+            reset: False,
+            weight_func: 'linear',
             max_before_reset: 100,
             max_no_imp:100,\
             gls_alpha_fcost:0.1,\
@@ -134,6 +136,8 @@ __default = { improve_method:None,\
             ils_type:ils_standard,\
             max_iter:50,\
             kstep: 3,
+            reset: False,
+            weight_func: 'linear',
             max_before_reset: 100,
             max_no_imp:100,\
             gls_alpha_fcost:0.1,\
@@ -162,6 +166,7 @@ __default = { improve_method:None,\
             init_file:None,\
             input_file:None,\
             output_file:None}
+
 
 # Parameter names used in configuration file
 __para_name = { improve_method:"ImproveMethod",\
