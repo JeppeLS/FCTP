@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     # Solve the problem instance using the method selected in the ini-file
     if fctp.solve() == 0:
-        fctp.solution.print_flows(lobnd=fctp.lobnd, cpu_time=fctp.cputime)
+        fctp.solution.print_flows(lobnd=fctp.lobnd)
         # Draw trajectory of generated objective values for all runs
         if not fctp.all_hist is None:
             import matplotlib.pyplot as plt

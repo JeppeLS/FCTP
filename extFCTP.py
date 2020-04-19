@@ -239,6 +239,8 @@ class extFCTP( FCTP.fctp ):
             self.ils_standard()
         elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_kstep:
             self.ils_k_step()
+        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_hist:
+            self.ils_hist_weight()
         else:
             raise NameError('Unknown ILS type, input 0 for Standard ILS and 1 for K-step')
 
@@ -352,6 +354,68 @@ class extFCTP( FCTP.fctp ):
             FCTP.param.set(FCTP.param.max_no_imp, max_fail)
             FCTP.param.set(FCTP.param.max_no_imp, max_iter)
             FCTP.param.set(FCTP.param.screen, do_info)
+
+    def ils_hist_weight(self):
+        weights = np.ones(self.narcs)
+        self.local_search()
+        self.history = [self.get_obj_val()]
+        max_iter = FCTP.param.get(FCTP.param.max_iter)
+        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
+        best_sol = FCTP.sol.solution()
+        inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
+        max_before_diversify = 10
+
+        weights[np.where(self.get_status() == FCTP.BASIC)[0]] += 1
+        num_fail = 0
+        num_no_improvement = 0
+        diversifying = False
+        changes = 0
+        if inform:
+            self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
+        for itr in range(max_iter):
+            num_fail += 1
+            num_no_improvement += 1
+
+            if num_no_improvement == max_before_diversify and not diversifying: # start diversifying search
+                diversifying = True
+                changes = 4 # number of times to prioritize unvisited nodes
+            if changes > 0:
+                changes -= 1
+                weights_to_use = np.max(weights) - weights + 1
+                if changes == 0:
+                    diversifying = False
+                    num_no_improvement = 0
+            else:
+                weights_to_use = weights
+
+            self.shake_sol(weights_to_use)
+            before_LS = self.get_obj_val()
+            self.local_search()
+            weights[np.where(self.get_status() == FCTP.BASIC)[0]] += 1
+
+            after_LS = self.get_obj_val()
+            if after_LS < best_sol.tot_cost:
+                num_no_improvement = 0
+                num_fail = 0
+                best_sol.over_write()
+            if inform:
+                self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
+            self.history.append(after_LS)
+            if num_fail >= max_fail:
+                break
+        best_sol.make_basic()
+        self.solution.over_write(best_sol)
+
+    def shake_sol(self, weights):
+        num_basic = self.nnodes - 1
+        num_exchanges = 3 if num_basic // 5 <= 5 else 5 + np.random.randint(num_basic // 5 - 4)
+        nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]
+        weights = weights[nb_arcs]/np.sum(weights[nb_arcs])
+        choices = np.random.choice(nb_arcs, p=weights, size=num_exchanges, replace=False)
+        for i in range(num_exchanges):
+            self.get_cost_sav(arc=choices[i])
+            self.remember_move()
+            self.do_move()
 
     def ils_k_step(self):
         self.local_search()

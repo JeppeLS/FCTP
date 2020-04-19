@@ -88,6 +88,7 @@ tol_default = 1.0E-4
 
 ils_standard = 0 # Vanilla ILS as implemented by Andreas Klose
 ils_kstep = 1 # ILS k-step, our alg
+ils_hist = 2
 
 
 
@@ -303,5 +304,4 @@ def read_ini_file( ):
             for pname in plist:
                 v = cfg['PARAMETERS'][pname]
                 p = pkeys[pname]
-                __param[p]= ( float(v) if '.' in v else int(v)) if __is_number(v) else v 
-    print_params()
+                __param[p]= ( float(v) if '.' in v else int(v)) if __is_number(v) else v
