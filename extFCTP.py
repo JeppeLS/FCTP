@@ -237,8 +237,6 @@ class extFCTP( FCTP.fctp ):
     def ils( self ):
         if FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_standard:
             self.ils_standard()
-        elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_kstep:
-            self.ils_k_step()
         elif FCTP.param.get(FCTP.param.ils_type)==FCTP.param.ils_hist:
             self.ils_hist_weight()
         else:
@@ -328,7 +326,7 @@ class extFCTP( FCTP.fctp ):
                 best_sol.over_write()
                 num_fail = 0;
             # Stop if max. number of failed subsequent iterations is reached
-            if num_fail == max_fail: break
+            # if num_fail == max_fail: break
             # Display objective values after local search
             if inform: self.give_info(iterat, before_LS, after_LS, best_sol.tot_cost)
             # Every beta iterations, reset the "current" solution to the best one.
@@ -363,7 +361,8 @@ class extFCTP( FCTP.fctp ):
         max_fail = FCTP.param.get(FCTP.param.max_no_imp)
         best_sol = FCTP.sol.solution()
         inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
-        max_before_diversify = 10
+        max_before_diversify = FCTP.param.get(FCTP.param.max_before_diversify)
+        iter_to_diversify = FCTP.param.get(FCTP.param.iter_to_diversify)
 
         weights[np.where(self.get_status() == FCTP.BASIC)[0]] += 1
         num_fail = 0
@@ -378,17 +377,15 @@ class extFCTP( FCTP.fctp ):
 
             if num_no_improvement == max_before_diversify and not diversifying: # start diversifying search
                 diversifying = True
-                changes = 4 # number of times to prioritize unvisited nodes
+                changes = iter_to_diversify # number of times to prioritize unvisited nodes
+
+            self.shake_sol(weights, diversifying)
             if changes > 0:
                 changes -= 1
-                weights_to_use = np.max(weights) - weights + 1
                 if changes == 0:
                     diversifying = False
                     num_no_improvement = 0
-            else:
-                weights_to_use = weights
 
-            self.shake_sol(weights_to_use)
             before_LS = self.get_obj_val()
             self.local_search()
             weights[np.where(self.get_status() == FCTP.BASIC)[0]] += 1
@@ -401,86 +398,24 @@ class extFCTP( FCTP.fctp ):
             if inform:
                 self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
             self.history.append(after_LS)
-            if num_fail >= max_fail:
-                break
+            #if num_fail >= max_fail:
+            #    break
         best_sol.make_basic()
         self.solution.over_write(best_sol)
 
-    def shake_sol(self, weights):
+    def shake_sol(self, weights, diversify):
         num_basic = self.nnodes - 1
         num_exchanges = 3 if num_basic // 5 <= 5 else 5 + np.random.randint(num_basic // 5 - 4)
         nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]
-        weights = weights[nb_arcs]/np.sum(weights[nb_arcs])
+        weights = weights[nb_arcs]
+        if diversify:
+            weights = np.max(weights) - weights + 1
+        weights = weights/np.sum(weights)
         choices = np.random.choice(nb_arcs, p=weights, size=num_exchanges, replace=False)
         for i in range(num_exchanges):
             self.get_cost_sav(arc=choices[i])
             self.remember_move()
             self.do_move()
-
-    def ils_k_step(self):
-        self.local_search()
-        self.history = [self.get_obj_val()]
-        k_step = FCTP.param.get(FCTP.param.kstep)
-        max_iter = FCTP.param.get(FCTP.param.max_iter)
-        max_fail = FCTP.param.get(FCTP.param.max_no_imp)
-        num_fail = 0
-
-        reset = FCTP.param.get(FCTP.param.reset)
-        max_before_reset = FCTP.param.get(FCTP.param.max_before_reset)
-        num_no_improvement = 0
-
-        if FCTP.param.get(FCTP.param.weight_func)=='linear':
-            transform = lambda weights: weights
-        elif FCTP.param.get(FCTP.param.weight_func)=='sqrt':
-            transform = lambda  weights: np.sqrt(weights)
-        elif FCTP.param.get(FCTP.param.weight_func)=='power':
-            transform = lambda  weights: weights**2
-        else:
-            raise NameError('Weight Function not found, define weight function as linear, sqrt or power, got ' + FCTP.param.get(FCTP.param.weight_func))
-        weight_func = lambda x: transform(x) / np.sum(transform(x))
-
-        best_sol = FCTP.sol.solution()
-        inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
-        if inform:
-            self.give_info("Iter", "Before LS", "After LS", "Best_sol", title="Multi-start local search")
-        for itr in range(max_iter):
-            leaving_arcs = []
-            for k in range(k_step):
-                nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]  # Get edges to look at
-                arcs_to_choose_from = list(set(nb_arcs) - set(leaving_arcs))
-                savings = np.zeros_like(arcs_to_choose_from)
-                i = 0
-                for arc in arcs_to_choose_from:
-                    saving = self.get_cost_sav(arc=arc)
-                    savings[i] = saving
-                    i += 1
-                weights = savings-np.min(savings) # Make savings non-negative
-                weights = weight_func(weights)
-                choice = np.random.choice(arcs_to_choose_from, p=weights)
-                self.get_cost_sav(arc=choice)
-                leaving_arcs.append(self.get_leaving_arc())
-                self.remember_move()
-                self.do_move()
-            before_LS = self.get_obj_val()
-            self.local_search()
-            after_LS = self.get_obj_val()
-            num_fail += 1
-            num_no_improvement += 1
-            if after_LS < best_sol.tot_cost:
-                num_no_improvement = 0
-                num_fail = 0
-                best_sol.over_write()
-            if num_no_improvement >= max_before_reset and reset:
-                num_fail = 0
-                self.solution.over_write(best_sol)
-            if inform:
-                self.give_info(itr, before_LS, after_LS, best_sol.tot_cost)
-            self.history.append(after_LS)
-            if num_fail >= max_fail:
-                break
-        best_sol.make_basic()
-        self.solution.over_write(best_sol)
-
 
     def sa( self ):
         """

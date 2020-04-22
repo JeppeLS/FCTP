@@ -40,10 +40,11 @@ cpx_cut_aggress = 25
 cpx_dis_cut = 26
 cpx_use_SNF_Gomory = 27
 ils_type = 28
-kstep = 29
 max_before_reset = 30
 weight_func = 31
 reset = 32
+max_before_diversify = 33
+iter_to_diversify = 34
 tolerance = 100
 init_file = 200;
 input_file = 201
@@ -87,7 +88,6 @@ cpx_opt = 20
 tol_default = 1.0E-4
 
 ils_standard = 0 # Vanilla ILS as implemented by Andreas Klose
-ils_kstep = 1 # ILS k-step, our alg
 ils_hist = 2
 
 
@@ -98,7 +98,8 @@ __param = { improve_method:None,\
             ls_type:first_accept,\
             ils_type:ils_standard,\
             max_iter:50,\
-            kstep: 3,
+            max_before_diversify: 10,
+            iter_to_diversify: 5,
             reset: False,
             weight_func: 'linear',
             max_before_reset: 100,
@@ -131,34 +132,35 @@ __param = { improve_method:None,\
             output_file:None}             
 
 # Parameter default values
-__default = { improve_method:None,\
-            greedy_meas:no_greedy,\
-            ls_type:first_accept,\
-            ils_type:ils_standard,\
-            max_iter:50,\
-            kstep: 3,
+__default = { improve_method:None,
+            greedy_meas:no_greedy,
+            ls_type:first_accept,
+            ils_type:ils_standard,
+            max_iter:50,
+            max_before_diversify: 10,
+            iter_to_diversify: 5,
             reset: False,
             weight_func: 'linear',
             max_before_reset: 100,
-            max_no_imp:100,\
-            gls_alpha_fcost:0.1,\
-            gls_alpha_tcost:0.0,\
-            sa_cool_beta:0.95,\
-            min_acc_rate:0.001,\
-            ini_acc_rate:0.3,\
-            sample_growth:0.02,\
-            num_runs:1,\
-            do_restart:yes,\
-            what_out:no_detail,\
-            screen:on,\
-            pop_size:100,\
-            num_childs:100,\
-            ils_rep:20,\
-            rtr_percent:0.1,\
-            cpx_time:1.0E30,\
-            cpx_nodelim:2147483647,\
-            benders:no,\
-            callbck:no,\
+            max_no_imp:100,
+            gls_alpha_fcost:0.1,
+            gls_alpha_tcost:0.0,
+            sa_cool_beta:0.95,
+            min_acc_rate:0.001,
+            ini_acc_rate:0.3,
+            sample_growth:0.02,
+            num_runs:1,
+            do_restart:yes,
+            what_out:no_detail,
+            screen:on,
+            pop_size:100,
+            num_childs:100,
+            ils_rep:20,
+            rtr_percent:0.1,
+            cpx_time:1.0E30,
+            cpx_nodelim:2147483647,
+            benders:no,
+            callbck:no,
             cpx_localbranch: no,\
             cpx_cut_aggress: no,\
             cpx_dis_cut: no,\
@@ -176,8 +178,9 @@ __para_name = { improve_method:"ImproveMethod",\
                 ils_type:"ILSType",\
                 max_iter:"MaxIter",\
                 max_no_imp:"MaxIterWithoutImprove", \
-                kstep: "kstep",
+                max_before_diversify:'MaxBeforeDiversify',
                 max_before_reset: "MaxIterBeforeReset",
+                iter_to_diversify: 'IterationToDiversify',
                 weight_func: "WeightFunction",
                 reset: "Reset",
                 gls_alpha_fcost:"GLS_alpha_fixedcost",\
@@ -274,7 +277,6 @@ def print_params( ):
     print("Iterations without improve :",__param[max_no_imp] )
     print("Number of runs             :",__param[num_runs])
     print("Each run with restart?     :",__param[do_restart])
-    print("K-step: ", __param[kstep])
     print("Reset: ", __param[reset])
     if __param[reset]:
         print("Iterations before reset: ", __param[max_before_reset])
