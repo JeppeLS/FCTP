@@ -142,8 +142,8 @@ if __name__ == "__main__":
     files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP','N1007.FCTP', 'N2007.FCTP', 'N3304.FCTP', 'N3507.FCTP',
              'N3704.FCTP']
     ini_files = ['ILSHist.ini']
-    #search_range = [5, 10, 20, 30]
-    #test_max_before_diversify(ini_files, files[6:7], search_range, 10)
-    #search_range = [5,10,15]
-    #test_diversification_iter(ini_files, files[6:7], search_range, 10)
-    test_instances(ini_files, files[7:], 1)
+    search_range = [5, 10, 20, 30]
+    test_max_before_diversify(ini_files, files, search_range, 10)
+    search_range = [5,10,15]
+    test_diversification_iter(ini_files, files, search_range, 10)
+    test_instances(ini_files, files, 1)
