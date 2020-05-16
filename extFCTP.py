@@ -409,7 +409,7 @@ class extFCTP( FCTP.fctp ):
         nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]
         weights = weights[nb_arcs]
         if diversify:
-            weights = np.max(weights) - weights + 1
+            weights = np.max(self.num_in_solution[nb_arcs]) - self.num_in_solution[nb_arcs]
         weights = weights/np.sum(weights)
         choices = np.random.choice(nb_arcs, p=weights, size=num_exchanges, replace=False)
         for i in range(num_exchanges):

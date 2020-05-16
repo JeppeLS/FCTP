@@ -153,6 +153,7 @@ class fctp(ABC):
             self.narcs = self.m * self.n
             self.lobnd = 0.0
             self.cputime = 0.0
+            self.num_in_solution = np.zeros(self.narcs)
 
     def reset_data(self, m, n, s, d, c, f, t):
         """
@@ -579,6 +580,7 @@ class fctp(ABC):
         Applies the move remembered by method "remember_move".
         """
         api.do_move()
+        self.num_in_solution += self.solution.arc_stat
 
     def is_degenerated(self):
         """

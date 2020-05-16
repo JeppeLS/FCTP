@@ -82,7 +82,7 @@ def test_instances(ini_files, files, num_runs):
             for run in range(num_runs):
                 fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
                 param = extFCTP.FCTP.param
-                param.set(param.max_iter, 500)
+                param.set(param.max_iter, 300)
                 param.set(param.num_runs, 1)
                 param.set(param.max_before_diversify, 10)
                 param.set(param.iter_to_diversify, 5)
@@ -91,7 +91,7 @@ def test_instances(ini_files, files, num_runs):
                 print(data_file + ': ' + str(mean))
             res.append(np.mean(mean))
         df[ini_file] = res
-    df.to_latex(buf=(dir + 'new'))
+    df.to_latex(buf=(dir + 'results_1_run'))
 
 def test_max_before_diversify(ini_files, files, search_range, num_runs):
     df = pd.DataFrame({'Iterations with no improvement before diversification producedure is initiated': search_range})
@@ -139,11 +139,8 @@ def test_diversification_iter(ini_files, files, search_range, num_runs):
 
 
 if __name__ == "__main__":
-    files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP','N1007.FCTP', 'N2007.FCTP', 'N3304.FCTP', 'N3507.FCTP',
-             'N3704.FCTP']
-    ini_files = ['ILSHist.ini']
-    search_range = [5, 10, 20, 30]
-    test_max_before_diversify(ini_files, files, search_range, 10)
-    search_range = [5,10,15]
-    test_diversification_iter(ini_files, files, search_range, 10)
+    files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP', 'N1007.FCTP', 'N2007.FCTP','N310E.FCTP', 'N350E.FCTP', 'N3001.FCTP',
+             'N3101.FCTP', 'N3201.FCTP', 'N3301.FCTP', 'N3401.FCTP', 'N3501.FCTP', 'N3601.FCTP', 'N3604.FCTP',
+             'N3304.FCTP', 'N3507.FCTP', 'N3704.FCTP']
+    ini_files = ['ILSHist.ini', 'ILSStandard.ini']
     test_instances(ini_files, files, 1)
