@@ -4,6 +4,9 @@ from getopt import getopt
 from tempfile import NamedTemporaryFile
 from FCTP.convert import convert
 import numpy as np
+import os
+import matplotlib.pyplot as plt
+from matplotlib import rc
 
 
 def __printHelp():
@@ -53,16 +56,26 @@ if __name__ == "__main__":
         fctp.solution.print_flows(lobnd=fctp.lobnd)
         # Draw trajectory of generated objective values for all runs
         if not fctp.all_hist is None:
-            import matplotlib.pyplot as plt
-
+            font = {'family': 'serif',
+                    'serif': ['computer modern roman'],
+                    'size': 16}
+            rc('text', usetex=True)
+            rc('font', **font)
             max_iter = max([len(h) for h in fctp.all_hist])
             hist_dat = np.zeros(max_iter, dtype=float)
             for h in fctp.all_hist: hist_dat[:len(h)] += np.array(h)
             nruns = len(fctp.all_hist)
             count = [len([h for h in fctp.all_hist if len(h) > i]) for i in range(max_iter)]
             hist_dat /= np.array(count)
-            plt.title("Generated objective function values (average over all runs)")
+            if ini_file == 'ILSHist.ini':
+                heuristic = 'Standard ILS'
+            else:
+                heuristic = 'Adaptive ILS'
+            plt.title("Search history in " + data_file + ' using ' + heuristic)
             plt.plot(hist_dat, marker='o', color='blue', markersize=2)
-            plt.show()
+            plt.tight_layout()
+            path = os.getcwd()+ '/' + str(data_file) + '_' + str(ini_file) + '.pdf'
+            print(path)
+            plt.savefig(fname=path)
 
 

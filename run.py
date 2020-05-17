@@ -4,6 +4,9 @@ import timeit
 import extFCTP
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import os
+from matplotlib import rc
 
 dir = './Results/'
 
@@ -73,6 +76,33 @@ def test_weight_func(ini_files, files):
         df[ini_file] = res
     df.to_latex(buf=(dir + 'test_weight_func'))
 
+
+def plot(fctp, ini_file, data_file):
+    if not fctp.all_hist is None:
+        font = {'family': 'serif',
+                'serif': ['computer modern roman'],
+                'size': 16}
+        rc('text', usetex=True)
+        rc('font', **font)
+        max_iter = max([len(h) for h in fctp.all_hist])
+        hist_dat = np.zeros(max_iter, dtype=float)
+        for h in fctp.all_hist: hist_dat[:len(h)] += np.array(h)
+        nruns = len(fctp.all_hist)
+        count = [len([h for h in fctp.all_hist if len(h) > i]) for i in range(max_iter)]
+        hist_dat /= np.array(count)
+        if ini_file == 'ILSHist.ini':
+            heuristic = 'Standard ILS'
+        else:
+            heuristic = 'Adaptive ILS'
+        plt.title("Search history in " + data_file + ' using ' + heuristic)
+        plt.plot(hist_dat, marker='o', color='blue', markersize=2)
+        plt.tight_layout()
+        path = os.getcwd() + '/' + str(data_file) + '_' + str(ini_file) + '.pdf'
+        print(path)
+        plt.savefig(fname=path)
+        plt.close()
+
+
 def test_instances(ini_files, files, num_runs):
     df = pd.DataFrame({'File Names': files})
     for ini_file in ini_files:
@@ -82,16 +112,17 @@ def test_instances(ini_files, files, num_runs):
             for run in range(num_runs):
                 fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
                 param = extFCTP.FCTP.param
-                param.set(param.max_iter, 300)
+                param.set(param.max_iter, 500)
                 param.set(param.num_runs, 1)
                 param.set(param.max_before_diversify, 10)
                 param.set(param.iter_to_diversify, 5)
                 fctp.solve()
                 mean.append(fctp.solution.tot_cost)
                 print(data_file + ': ' + str(mean))
+                plot(fctp, ini_file, data_file)
             res.append(np.mean(mean))
         df[ini_file] = res
-    df.to_latex(buf=(dir + 'results_1_run'))
+    df.to_latex(buf=(dir + 'results_1_run_weighting_num_sol_500_iter'))
 
 def test_max_before_diversify(ini_files, files, search_range, num_runs):
     df = pd.DataFrame({'Iterations with no improvement before diversification producedure is initiated': search_range})
@@ -103,7 +134,7 @@ def test_max_before_diversify(ini_files, files, search_range, num_runs):
                 for run in range(num_runs):
                     fctp = extFCTP.extFCTP(data_file=data_file, ini_file=ini_file)
                     param = extFCTP.FCTP.param
-                    param.set(param.max_iter, 300)
+                    param.set(param.max_iter, 1)
                     param.set(param.reset, False)  # Set reset
                     param.set(param.num_runs, 1)
                     param.set(param.max_before_diversify, diversify)
@@ -142,5 +173,5 @@ if __name__ == "__main__":
     files = ['N207.FCTP', 'N307.FCTP', 'N507.FCTP', 'N1007.FCTP', 'N2007.FCTP','N310E.FCTP', 'N350E.FCTP', 'N3001.FCTP',
              'N3101.FCTP', 'N3201.FCTP', 'N3301.FCTP', 'N3401.FCTP', 'N3501.FCTP', 'N3601.FCTP', 'N3604.FCTP',
              'N3304.FCTP', 'N3507.FCTP', 'N3704.FCTP']
-    ini_files = ['ILSHist.ini', 'ILSStandard.ini']
+    ini_files = ['ILSHist.ini', 'ILSStandard']
     test_instances(ini_files, files, 1)

@@ -289,6 +289,7 @@ class extFCTP( FCTP.fctp ):
         max_fail = FCTP.param.get(FCTP.param.max_no_imp)
         max_iter = FCTP.param.get(FCTP.param.max_iter)
         iterat = 0;
+        self.local_search()
 
         # Display something on the screen, so that we can see that something happens
         do_info = FCTP.param.get(FCTP.param.screen)
@@ -355,9 +356,11 @@ class extFCTP( FCTP.fctp ):
 
     def ils_hist_weight(self):
         weights = np.ones(self.narcs)
+        self.num_initial_sol = self.solution.arc_stat + 1
         self.local_search()
         self.history = [self.get_obj_val()]
         max_iter = FCTP.param.get(FCTP.param.max_iter)
+        print(max_iter)
         max_fail = FCTP.param.get(FCTP.param.max_no_imp)
         best_sol = FCTP.sol.solution()
         inform = FCTP.param.get(FCTP.param.screen) == FCTP.param.on
@@ -409,13 +412,14 @@ class extFCTP( FCTP.fctp ):
         nb_arcs = np.where(self.get_status() != FCTP.BASIC)[0]
         weights = weights[nb_arcs]
         if diversify:
-            weights = np.max(self.num_in_solution[nb_arcs]) - self.num_in_solution[nb_arcs]
+            weights = np.max(self.num_initial_sol[nb_arcs]) - self.num_initial_sol[nb_arcs]
         weights = weights/np.sum(weights)
         choices = np.random.choice(nb_arcs, p=weights, size=num_exchanges, replace=False)
         for i in range(num_exchanges):
             self.get_cost_sav(arc=choices[i])
             self.remember_move()
             self.do_move()
+        self.num_initial_sol += self.solution.arc_stat
 
     def sa( self ):
         """
